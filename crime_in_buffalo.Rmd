@@ -1,0 +1,133 @@
+---
+title: "Crime Incidents in Buffalo NY"
+author: "Liz Lorence"
+date: "November 16, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(readr)
+library(knitr)
+library(rgdal)
+library(kableExtra)
+
+buff  <- readOGR("C:\\Users\\Liz\\Desktop\\LizLorencce\\content\\post\\buffalo.shp")
+
+Crime_Incidents <- read_csv("Crime_Incidents.csv")
+
+View(Crime_Incidents)
+```
+
+
+```{r crime, echo= FALSE, include=FALSE}
+##clean the datetime field
+crime<- Crime_Incidents %>%
+  separate(incident_datetime, sep = " ", into = c("date","time")) %>%
+  separate(date, sep = "/", into = c("month","day","year"))
+```
+
+```{r crimetype, echo = FALSE}
+crime_type<- crime %>%
+  select(year, parent_incident_type) %>%
+  filter(year > 2013) %>%
+  group_by(year,parent_incident_type) %>%
+  count() %>%
+  ungroup()
+```
+
+In my analysis, I examined crime incidents in the city of Buffalo, New York from 2014 to 2018. 
+
+```{r crimetypegraph, echo = FALSE}
+ggplot(crime_type, aes(year,n, color = parent_incident_type, group = parent_incident_type)) +
+  geom_line() +
+  facet_wrap(~parent_incident_type) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),  legend.position="none") +
+  ggtitle("Crime in Buffalo in the Past 5 Years")
+
+```
+
+Overall crime has decreased in Buffalo. In particular Buffalo has seen a decrease in theft, assault, and breaking & entering incidents. Other incidents have remained consistently rare.
+
+``` {r days, echo=FALSE}
+days<- crime %>%
+  filter(year > 2013) %>%
+  group_by(day_of_week, parent_incident_type) %>%
+  count() %>%
+  ungroup()
+```
+
+```{r daygraph, echo = FALSE}
+ggplot(days, aes(day_of_week,n, fill = parent_incident_type)) +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),axis.line=element_blank()) +
+  ylab("Incidents") +
+  xlab("Day of Week") +
+  guides(fill=guide_legend(title="Incident Types")) +
+  ggtitle("Incidents by Day of the Week")
+ 
+  
+
+```
+
+Here I examined crime incidents by the day of the week the incidents took place. I predicted that weekends would have  more incidents of crime than week days but by large that does not seem to be the case. On Fridays and Saturdays only slightly more crime incidents occur. 
+
+```{r seasons, echo=FALSE}
+seasons <- crime %>%
+  filter(year > 2013 ) %>%
+  mutate(season = case_when(month == "12" | month == "01" | month == "02" ~ "Winter", 
+                            month == "03" | month == "04" | month == "05" ~ "Spring",
+                            month == "06" | month == "07" | month == "08" ~ "Summer",
+                            month == "09" | month == "10" | month == "11" ~ "Fall")) %>%
+  group_by(season, parent_incident_type) %>%
+  count() %>%
+  ungroup()
+```
+
+```{r seasonsgraph, echo = FALSE}
+ggplot(seasons, aes(season,n, fill = parent_incident_type)) +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),axis.line=element_blank()) +
+  ylab("Incidents") +
+  xlab("Season") +
+  guides(fill=guide_legend(title="Incident Types")) +
+  ggtitle("Incidents by Season")
+
+```
+
+Here I examined incidents of crime by season. There is a clear increase in incidents during summer months. You can also see a clear decrease in incidents during winter months. Criminals hate the freezing cold weather in Buffalo.
+
+```{r crimemap, echo = FALSE}
+crime_map <- crime %>%
+              filter(year > 2013) %>%
+              select(latitude, longitude, `Police Districts`)
+
+```
+
+```{r mapofcrime, echo = FALSE}
+  plot(buff)
+  points(crime_map$longitude, crime_map$latitude, col = alpha(crime_map$`Police Districts`,.1),  cex = .01)
+  title("Crime in Buffalo from 2014 to 2018")
+ legend("right", legend = c("1","2","3","4","5"), fill = c("black","red","green","blue","lightblue"))
+```
+
+
+```{r crimetable, echo = FALSE}
+crime_table <- crime %>%
+              filter(year > 2013) %>%
+              group_by(`Police Districts`) %>%
+              count() %>%
+              rename("Number of Incidents" = n)
+              
+crime_table %>%
+  kable(caption = "Incidents by Police District") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+Here I analyzed incidents of crime by police districts. The 4th police district in South Buffalo has far fewer incidents of crime than the other districts.
